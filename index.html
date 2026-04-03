@@ -124,6 +124,14 @@
       border: 1.5px solid #dceadc;
       border-radius: 8px;
       padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    }
+
+    .plant-card:hover {
+      border-color: #2e6b2e;
+      box-shadow: 0 2px 8px rgba(46,107,46,0.15);
+      transform: translateY(-1px);
     }
 
     .plant-name {
@@ -217,6 +225,149 @@
       color: #8aaa8a;
       margin-top: 6px;
     }
+
+    /* ─── Plant Detail Modal ──────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+      width: 100%;
+      max-width: 520px;
+      max-height: 85vh;
+      overflow-y: auto;
+      animation: modalIn 0.25s ease-out;
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(24px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 24px 24px 0;
+    }
+
+    .modal-header h2 {
+      font-size: 1.4rem;
+      color: #2e6b2e;
+      margin: 0;
+    }
+
+    .modal-header .plant-type-label {
+      font-size: 0.78rem;
+      color: #8aaa8a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: #999;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .modal-close:hover { color: #333; }
+
+    .modal-body {
+      padding: 20px 24px 28px;
+    }
+
+    .modal-zone-badge {
+      display: inline-block;
+      background: #2e6b2e;
+      color: white;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+
+    .modal-description {
+      font-size: 0.9rem;
+      color: #556655;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .care-section {
+      margin-bottom: 16px;
+    }
+
+    .care-section h3 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #7a9a7a;
+      margin-bottom: 6px;
+    }
+
+    .care-section p {
+      font-size: 0.88rem;
+      color: #445544;
+      line-height: 1.55;
+    }
+
+    .care-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .care-stat {
+      background: #f5faf5;
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+
+    .care-stat .label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #8aaa8a;
+      margin-bottom: 3px;
+    }
+
+    .care-stat .value {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #2e6b2e;
+    }
+
+    .select-hint {
+      font-size: 0.75rem;
+      color: #aab8aa;
+      text-align: center;
+      margin-top: 6px;
+    }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -261,6 +412,7 @@
 
     <div class="section-title">Recommended Plants</div>
     <div class="plant-grid" id="plant-grid"></div>
+    <p class="select-hint">Click a plant for detailed nurturing tips</p>
 
     <div class="section-title">Tips for Your Zone</div>
     <p id="zone-tips" style="font-size:0.88rem; color:#556655; line-height:1.6;"></p>
@@ -268,6 +420,25 @@
 </div>
 
 <footer>Zone data based on USDA Plant Hardiness Zones for New York State.</footer>
+
+<!-- Plant Detail Modal -->
+<div class="modal-overlay" id="plant-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2 id="modal-plant-name"></h2>
+        <div class="plant-type-label" id="modal-plant-type"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <span class="modal-zone-badge" id="modal-zone-badge"></span>
+      <p class="modal-description" id="modal-description"></p>
+      <div class="care-grid" id="modal-care-grid"></div>
+      <div id="modal-care-sections"></div>
+    </div>
+  </div>
+</div>
 
 <script>
 // ─── Location → Zone database ────────────────────────────────────────────────
@@ -407,6 +578,209 @@ const TIPS = {
   7: "Zone 7 is the warmest zone in NY (0 to 10°F lows), enabling plants rarely grown elsewhere in the state. NYC's urban heat island often pushes conditions toward zone 7b. Take advantage with broadleaf evergreens and early-season bloomers. Water young plants through summer heat.",
 };
 
+// ─── Nurturing tips per plant ────────────────────────────────────────────────
+const NURTURE = {
+  // Zone 4
+  "Paper Birch": {
+    sun: "Full Sun", water: "Medium", soil: "Moist, well-drained", bloom: "Spring (catkins)",
+    care: "Plant in a spot with good air circulation. Mulch around the base to keep roots cool and moist. Avoid heavy pruning in spring — prune in late summer to prevent sap bleeding.",
+    seasonal: "In fall, leave leaf litter around the base as natural insulation. Wrap young trunks in winter to prevent sunscald and frost cracks. Water deeply before ground freezes.",
+    pests: "Watch for bronze birch borer — keep the tree stress-free with adequate water. Aphids may appear in spring but rarely cause serious harm."
+  },
+  "Blue Spruce": {
+    sun: "Full Sun", water: "Low–Medium", soil: "Well-drained, slightly acidic", bloom: "N/A (evergreen)",
+    care: "Needs little maintenance once established. Water deeply but infrequently. Avoid planting in wet or compacted soil. Do not shear — prune only dead or damaged branches.",
+    seasonal: "Shake heavy snow off branches to prevent breakage. No winter wrapping needed. In spring, check for needle cast disease and remove affected branches.",
+    pests: "Spruce budworm and spider mites can be an issue in dry conditions. A strong water spray can dislodge mites. Apply dormant oil in early spring if needed."
+  },
+  "Serviceberry": {
+    sun: "Full Sun to Part Shade", water: "Medium", soil: "Adaptable, prefers moist acidic", bloom: "Early Spring",
+    care: "One of the earliest bloomers — prune right after flowering. Berries attract birds; net if you want to harvest them yourself. Mulch to retain moisture.",
+    seasonal: "Beautiful fall color requires no special care. In winter, its graceful branch structure adds garden interest. Water during dry summer spells.",
+    pests: "Generally pest-free. Cedar-apple rust can occasionally appear — remove any nearby junipers to reduce risk."
+  },
+  "Siberian Iris": {
+    sun: "Full Sun to Part Shade", water: "Medium–High", soil: "Moist, slightly acidic", bloom: "Late Spring–Early Summer",
+    care: "Divide clumps every 3–4 years in late summer to maintain vigor. Cut foliage back to 6 inches in fall. Thrives near water features and in rain gardens.",
+    seasonal: "Leave foliage through fall to feed the roots. Cut back brown foliage in late fall. Mulch lightly for extra winter protection in exposed areas.",
+    pests: "Virtually pest and disease-free. Avoid overhead watering to prevent leaf spot."
+  },
+  "Hosta": {
+    sun: "Part Shade to Full Shade", water: "Medium", soil: "Rich, moist, well-drained", bloom: "Summer",
+    care: "Perfect for shaded areas under trees. Amend soil with compost at planting. Water at the base to keep foliage dry. Divide every 3–5 years in early spring.",
+    seasonal: "Emerges late in spring — mark locations so you don't dig them up accidentally. Cut back spent foliage after first hard frost. Mulch with shredded leaves in fall.",
+    pests: "Slugs and deer are the main threats. Use slug bait or copper barriers. For deer, try repellent sprays or choose thicker-leaved varieties they find less palatable."
+  },
+  "Coneflower (Echinacea)": {
+    sun: "Full Sun", water: "Low–Medium", soil: "Well-drained, tolerates poor soil", bloom: "Summer–Fall",
+    care: "Extremely low maintenance. Deadhead to extend blooming, or leave seed heads for winter bird food. Do not over-fertilize — lean soil produces sturdier stems.",
+    seasonal: "Leave seed heads standing through winter for goldfinches. Cut back old stems in early spring before new growth emerges. Divide every 4–5 years.",
+    pests: "Aster yellows (spread by leafhoppers) can distort flowers — remove and destroy affected plants. Japanese beetles may nibble petals but rarely cause lasting damage."
+  },
+  "Bleeding Heart": {
+    sun: "Part Shade to Full Shade", water: "Medium", soil: "Rich, moist, humus-rich", bloom: "Spring–Early Summer",
+    care: "Goes dormant by midsummer — plant nearby companions (ferns, hostas) to fill the gap. Do not cut back foliage until it yellows completely. Top-dress with compost in spring.",
+    seasonal: "Mark the location in fall so you don't accidentally damage the crown. Mulch after the ground freezes. New shoots emerge early in spring — protect from late frosts with row cover.",
+    pests: "Rarely bothered by pests or disease. Slugs may nibble in very wet conditions. Good air circulation prevents powdery mildew."
+  },
+  "Wild Columbine": {
+    sun: "Part Shade to Full Sun", water: "Low–Medium", soil: "Well-drained, rocky OK", bloom: "Spring",
+    care: "A native wildflower that self-seeds freely. Deadhead to prevent spreading, or let it naturalize. Thrives in rock gardens and woodland edges. Needs no fertilizer.",
+    seasonal: "Cut back ratty foliage in midsummer — fresh leaves often regrow. Leave some seed heads for self-sowing. No winter protection needed.",
+    pests: "Leaf miners create squiggly trails on leaves — cosmetic only. Cut affected foliage to the ground; new leaves will emerge."
+  },
+
+  // Zone 5
+  "Sugar Maple": {
+    sun: "Full Sun to Part Shade", water: "Medium", soil: "Moist, well-drained, slightly acidic", bloom: "Spring (subtle)",
+    care: "Give it space — matures to 60–75 ft. Avoid road salt exposure, which damages roots and foliage. Prune in late summer or early fall to avoid heavy sap flow.",
+    seasonal: "Fall color is best with warm days and cool nights. Mulch the root zone but keep mulch away from the trunk. Water young trees deeply through dry summers.",
+    pests: "Watch for Asian longhorned beetle (invasive). Tar spot fungus is cosmetic and harmless. Verticillium wilt can be serious — remove affected branches promptly."
+  },
+  "Red Oak": {
+    sun: "Full Sun", water: "Medium", soil: "Adaptable, prefers acidic loam", bloom: "Spring (catkins)",
+    care: "Fast-growing and long-lived. Prune in winter when dormant to reduce oak wilt risk. Acorns feed wildlife but can be messy — plant away from patios and driveways.",
+    seasonal: "Water deeply during summer drought for young trees. Leaves may hang on through winter (marcescence) — this is normal. Mulch the drip line in fall.",
+    pests: "Oak wilt is the biggest threat — never prune April through July. Gypsy moth caterpillars can defoliate but healthy trees usually recover."
+  },
+  "Lilac (Syringa)": {
+    sun: "Full Sun", water: "Low–Medium", soil: "Neutral to slightly alkaline, well-drained", bloom: "Mid Spring",
+    care: "Prune immediately after blooming — next year's buds set in summer. Remove spent flower clusters and thin old canes to the base to rejuvenate. Avoid high-nitrogen fertilizer.",
+    seasonal: "No special winter care needed. In spring, remove any suckers growing away from the main plant unless you want it to spread. Good air circulation prevents mildew.",
+    pests: "Powdery mildew is common in late summer but rarely harmful. Lilac borers can weaken stems — remove wilting branches and prune out borer holes."
+  },
+  "Black-eyed Susan": {
+    sun: "Full Sun", water: "Low–Medium", soil: "Adaptable, well-drained", bloom: "Summer–Fall",
+    care: "One of the easiest perennials. Deadhead for continuous blooms, or leave seed heads for birds. Divide every 3–4 years in spring. Tolerates heat and drought well.",
+    seasonal: "Leave seed heads through winter for texture and bird food. Cut back old stems in early spring. Self-seeds readily — pull unwanted seedlings in spring.",
+    pests: "Relatively trouble-free. Septoria leaf spot can cause lower leaf browning in humid weather — improve air circulation and avoid overhead watering."
+  },
+  "Daylily": {
+    sun: "Full Sun to Part Shade", water: "Low–Medium", soil: "Adaptable", bloom: "Summer",
+    care: "Nearly indestructible. Remove spent flower stalks (scapes) for neatness. Divide overcrowded clumps every 3–5 years in early spring or fall. Tolerates poor soil.",
+    seasonal: "Cut back foliage after frost browns it. Mulch lightly in the first winter after planting. In summer, each flower lasts only one day — hence the name.",
+    pests: "Daylily rust (fungal) can appear as orange spots — remove affected foliage. Aphids may cluster on buds in spring; wash off with water."
+  },
+  "Catmint": {
+    sun: "Full Sun", water: "Low", soil: "Well-drained, tolerates poor soil", bloom: "Late Spring–Fall",
+    care: "Shear back by half after the first bloom flush to get a strong second wave. Extremely drought-tolerant once established. Deer and rabbits leave it alone.",
+    seasonal: "Leave dried stems through winter for structure, then cut to the ground in early spring. New growth fills in quickly. No mulch needed — prefers lean, dry conditions.",
+    pests: "Virtually pest-free. May get leggy in rich, moist soil — lean soil keeps plants compact."
+  },
+  "Forsythia": {
+    sun: "Full Sun", water: "Medium", soil: "Adaptable", bloom: "Early Spring",
+    care: "Prune right after flowering — do not prune in fall or winter, or you'll remove next spring's buds. Remove the oldest one-third of canes at ground level each year to keep it tidy.",
+    seasonal: "One of the first signs of spring. No winter protection needed. Branches can be forced indoors in late winter — cut and place in water for early blooms.",
+    pests: "Very few problems. Crown gall (bacterial) can cause knotty growths at the base — prune out and sterilize tools."
+  },
+  "Sedum 'Autumn Joy'": {
+    sun: "Full Sun", water: "Low", soil: "Well-drained, poor soil OK", bloom: "Late Summer–Fall",
+    care: "Thrives on neglect. Do not fertilize or overwater — stems will flop. Can pinch stems back by half in June for a shorter, sturdier plant. Divide every 3–4 years.",
+    seasonal: "Dried flower heads look beautiful through winter — leave them standing until early spring. Cut back to ground level when new green rosettes appear at the base.",
+    pests: "Virtually pest and disease-free. Overwatering causes root rot — the most common mistake."
+  },
+
+  // Zone 6
+  "Dogwood (Cornus)": {
+    sun: "Part Shade to Full Sun", water: "Medium", soil: "Moist, acidic, well-drained", bloom: "Spring",
+    care: "Understory tree — does best with some afternoon shade. Mulch to keep roots cool and moist. Avoid mechanical damage to the trunk (lawnmowers) which invites disease.",
+    seasonal: "Red berries and fall color provide multi-season interest. Water during summer dry spells. Prune only to remove dead wood — avoid heavy pruning.",
+    pests: "Dogwood anthracnose can be serious — improve air circulation, water at ground level, and remove infected branches. Borers attack stressed trees."
+  },
+  "Eastern Redbud": {
+    sun: "Full Sun to Part Shade", water: "Medium", soil: "Moist, well-drained", bloom: "Early Spring",
+    care: "One of the showiest spring-blooming trees. Prune after flowering to shape. Heart-shaped leaves provide light dappled shade — great for underplanting with shade perennials.",
+    seasonal: "Young trees benefit from winter mulching around the root zone. Water regularly during the first two years. Yellowing leaves in fall is normal — not a sign of stress.",
+    pests: "Canker diseases can affect stressed trees — keep watered during drought. Cercis leafhopper may cause minor stippling but is not serious."
+  },
+  "Hydrangea (Bigleaf)": {
+    sun: "Part Shade (morning sun ideal)", water: "Medium–High", soil: "Rich, moist, well-drained", bloom: "Summer",
+    care: "Flower color depends on soil pH: acidic soil = blue flowers, alkaline = pink. Add aluminum sulfate for blue, lime for pink. Prune only dead wood — blooms on old wood.",
+    seasonal: "Protect flower buds in winter: mound mulch or burlap cage around the base in late fall. Do NOT cut back hard in fall or spring — you'll remove next year's blooms.",
+    pests: "Powdery mildew in humid weather — improve air circulation. Deer may browse foliage; use repellent. Japanese beetles can damage leaves."
+  },
+  "Lavender": {
+    sun: "Full Sun", water: "Low", soil: "Well-drained, lean, alkaline", bloom: "Summer",
+    care: "Drainage is critical — amend heavy soil with gravel or sand. Do not mulch with wood chips (retains moisture). Prune in spring, shaping into a mound; never cut into old wood.",
+    seasonal: "Harvest flowers just as they open for strongest fragrance. In fall, do a light trim but leave foliage for winter insulation. Avoid wet winter feet — raised beds help.",
+    pests: "Root rot from overwatering is the biggest killer. Rarely bothered by insects or deer. Good air circulation prevents fungal issues."
+  },
+  "Russian Sage": {
+    sun: "Full Sun", water: "Low", soil: "Well-drained, lean", bloom: "Mid Summer–Fall",
+    care: "Thrives in hot, dry conditions. Cut back to 6–12 inches in early spring — new growth comes from the base. Avoid rich soil or excess water, which causes flopping.",
+    seasonal: "Leave silvery stems standing through winter for structure and wildlife cover. In spring, wait until you see new buds on the stems before cutting back.",
+    pests: "Essentially pest and disease-free. Its aromatic foliage repels deer and most insects."
+  },
+  "Clethra (Summersweet)": {
+    sun: "Part Shade to Full Sun", water: "Medium–High", soil: "Moist, acidic", bloom: "Late Summer",
+    care: "One of the best shrubs for wet or boggy spots. Spreads by suckers — remove unwanted shoots to control spread. Prune in early spring since it blooms on new wood.",
+    seasonal: "Fragrant white flower spikes in July–August attract butterflies. Fall foliage turns golden yellow. No winter protection needed.",
+    pests: "Very few problems. Spider mites in hot dry conditions — mist foliage during heat waves."
+  },
+  "Baptisia (False Indigo)": {
+    sun: "Full Sun", water: "Low", soil: "Well-drained, poor soil OK", bloom: "Late Spring",
+    care: "Deep taproot makes it drought-tolerant and hard to transplant — choose your spot carefully. Needs no fertilizer or staking. Leave attractive seed pods for winter interest.",
+    seasonal: "Dark seed pods rattle in winter wind — nice structural element. Cut back in early spring when new blue-green shoots emerge. Very long-lived perennial.",
+    pests: "Virtually trouble-free. Weevils may notch leaf edges — cosmetic only, no treatment needed."
+  },
+  "Knockout Rose": {
+    sun: "Full Sun", water: "Medium", soil: "Well-drained, fertile", bloom: "Spring–Frost",
+    care: "Deadheading is optional — self-cleaning. Prune by one-third to one-half in early spring. Feed with balanced rose fertilizer in spring and midsummer.",
+    seasonal: "After first hard frost, mound 6 inches of mulch or soil over the base for winter protection in zone 6. Remove the mound in spring when forsythias bloom.",
+    pests: "More disease-resistant than traditional roses but can still get black spot in wet years. Avoid overhead watering. Japanese beetles love roses — hand-pick or trap."
+  },
+
+  // Zone 7
+  "Crape Myrtle": {
+    sun: "Full Sun", water: "Low–Medium", soil: "Well-drained", bloom: "Summer–Fall",
+    care: "Do NOT commit 'crape murder' — topping ruins the natural form. Prune only to remove crossing branches and spent seed heads. Needs full sun for best blooms.",
+    seasonal: "Exfoliating bark provides winter interest. In zone 7, mulch the root zone in the first few winters. Once established, very heat and drought tolerant.",
+    pests: "Aphids can cause sooty mold on leaves — wash off with water. Powdery mildew on older varieties; choose mildew-resistant cultivars."
+  },
+  "Southern Magnolia": {
+    sun: "Full Sun to Part Shade", water: "Medium", soil: "Acidic, moist, well-drained", bloom: "Late Spring–Summer",
+    care: "Large tree — give it 30+ ft of space. The dense canopy and fallen leaves suppress grass underneath — use shade-tolerant groundcover instead. Minimal pruning needed.",
+    seasonal: "Evergreen leaves drop year-round — this is normal. Large fragrant white flowers in early summer. Protect young trees from winter wind with burlap screen.",
+    pests: "Scale insects can appear on leaves — treat with horticultural oil. Generally trouble-free once established."
+  },
+  "Camellia": {
+    sun: "Part Shade", water: "Medium", soil: "Acidic, moist, well-drained, humus-rich", bloom: "Fall–Spring (varies by variety)",
+    care: "Plant in a sheltered north- or east-facing spot to protect from winter sun and wind. Mulch heavily with pine bark. Prune lightly after flowering to shape.",
+    seasonal: "Flower buds form in summer — do not prune after July. Water during dry falls to support bud development. In severe winters, cover with frost cloth when temps drop below 15°F.",
+    pests: "Tea scale on leaf undersides — treat with horticultural oil. Petal blight causes brown spots on flowers — remove fallen blooms promptly."
+  },
+  "Gardenia": {
+    sun: "Part Shade (morning sun)", water: "Medium", soil: "Acidic, rich, moist", bloom: "Late Spring–Summer",
+    care: "Demanding but rewarding. Needs consistent moisture, acidic soil (pH 5.0–6.0), and humidity. Feed with acid-loving plant fertilizer in spring and summer. Mist foliage in dry weather.",
+    seasonal: "In zone 7, grow in containers and bring indoors for winter, or plant against a warm south-facing wall. Buds drop if exposed to cold drafts or temperature swings.",
+    pests: "Whiteflies and mealybugs are common — treat with insecticidal soap. Sooty mold follows pest infestations. Yellow leaves usually mean the soil pH is too high."
+  },
+  "Ginkgo": {
+    sun: "Full Sun", water: "Low–Medium", soil: "Adaptable, well-drained", bloom: "Spring (inconspicuous)",
+    care: "Choose male cultivars to avoid the foul-smelling fruit of female trees. Virtually maintenance-free once established. Prune in winter to shape young trees.",
+    seasonal: "Spectacular golden fall color — leaves drop all at once over a few days. Extremely tolerant of urban pollution, salt, and compacted soil. No winter care needed.",
+    pests: "Remarkably resistant to pests and diseases — one of the toughest urban trees available. No significant problems known."
+  },
+  "Japanese Maple": {
+    sun: "Part Shade (protect from afternoon sun)", water: "Medium", soil: "Moist, well-drained, slightly acidic", bloom: "Spring (subtle)",
+    care: "Protect from harsh afternoon sun and drying winds. Mulch to maintain cool, moist soil. Prune minimally in late winter — thin interior branches for an open, layered look.",
+    seasonal: "Spring and fall foliage colors are the main attraction. Wrap trunk of young trees in winter to prevent frost cracks. Water during dry winters when ground is unfrozen.",
+    pests: "Verticillium wilt can cause branch dieback — remove affected branches, sterilize tools. Japanese beetles may feed on foliage. Scale insects are occasionally an issue."
+  },
+  "Liriope (Lilyturf)": {
+    sun: "Part Shade to Full Shade", water: "Low–Medium", soil: "Adaptable", bloom: "Late Summer",
+    care: "Excellent low-maintenance groundcover. Mow or shear to 3 inches in late winter before new growth begins. Divide every 3–4 years to keep clumps vigorous.",
+    seasonal: "Evergreen foliage may brown at the tips in harsh winters — the spring trim removes this. Blue-purple flower spikes in late summer, followed by dark berries.",
+    pests: "Crown rot in poorly drained soil. Slugs and snails in very moist conditions. Deer-resistant."
+  },
+  "Butterfly Bush": {
+    sun: "Full Sun", water: "Low–Medium", soil: "Well-drained", bloom: "Summer–Fall",
+    care: "Cut back hard (to 12 inches) in early spring — blooms on new wood. Deadhead spent flower spikes to encourage continuous blooming. Avoid over-fertilizing.",
+    seasonal: "Dies back to the ground in cold winters, which is fine — new growth is vigorous. No winter protection needed in zone 7. Check local regulations — invasive in some areas.",
+    pests: "Few pest problems. Spider mites in very hot, dry weather — mist foliage. Choose sterile cultivars (e.g., 'Lo & Behold' series) to prevent unwanted seeding."
+  },
+};
+
 // ─── App logic ────────────────────────────────────────────────────────────────
 function normalize(str) {
   return str.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -452,6 +826,7 @@ function lookup() {
   for (const plant of PLANTS[zone]) {
     const div = document.createElement('div');
     div.className = 'plant-card';
+    div.onclick = () => openPlantModal(plant, zone, region);
     div.innerHTML = `
       <div class="plant-name">${plant.name}</div>
       <div class="plant-type">${plant.type}</div>
@@ -588,6 +963,54 @@ map.on('click', function(e) {
     const m = markers.find(m => m.cityName === nearest);
     if (m) { map.flyTo(m.getLatLng(), 9, { duration: 0.6 }); m.openPopup(); }
   }
+});
+
+// ─── Plant Detail Modal ──────────────────────────────────────────────────────
+function openPlantModal(plant, zone, region) {
+  const tips = NURTURE[plant.name];
+  document.getElementById('modal-plant-name').textContent = plant.name;
+  document.getElementById('modal-plant-type').textContent = plant.type;
+  document.getElementById('modal-zone-badge').textContent = `Zone ${zone} — ${region}`;
+  document.getElementById('modal-description').textContent = plant.note;
+
+  const careGrid = document.getElementById('modal-care-grid');
+  careGrid.innerHTML = '';
+  if (tips) {
+    const stats = [
+      { label: 'Sunlight', value: tips.sun },
+      { label: 'Water', value: tips.water },
+      { label: 'Soil', value: tips.soil },
+      { label: 'Bloom Season', value: tips.bloom },
+    ];
+    for (const s of stats) {
+      careGrid.innerHTML += `<div class="care-stat"><div class="label">${s.label}</div><div class="value">${s.value}</div></div>`;
+    }
+  }
+
+  const sections = document.getElementById('modal-care-sections');
+  sections.innerHTML = '';
+  if (tips) {
+    const parts = [
+      { title: 'Care & Maintenance', text: tips.care },
+      { title: 'Seasonal Tips', text: tips.seasonal },
+      { title: 'Pests & Problems', text: tips.pests },
+    ];
+    for (const p of parts) {
+      sections.innerHTML += `<div class="care-section"><h3>${p.title}</h3><p>${p.text}</p></div>`;
+    }
+  }
+
+  document.getElementById('plant-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('plant-modal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
 });
 
 // Bridge: clicking "View All" in popup fills the search and triggers lookup
